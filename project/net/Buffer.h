@@ -26,9 +26,14 @@ public:
           write_index_(kCheapPrepend) {}
     
     void swap(Buffer& rhs) {
+        using std::swap;
         buffer_.swap(rhs.buffer_);
         std::swap(read_index_, rhs.read_index_);
         std::swap(write_index_, rhs.write_index_);
+    }
+
+    char* peek() const {
+        return beginRead();
     }
 
     size_t readableBytes() const {

@@ -148,7 +148,9 @@ void TcpConnection::forceCLose() {
 }
 
 void TcpConnection::forceCloseWithDelay(int ms) {
-
+        loop_->runAfter(ms, std::bind(&TcpConnection::closeInLoop,
+                shared_from_this()));
+                // TODO:weak prt
 }
 
 void TcpConnection::closeInLoop() {

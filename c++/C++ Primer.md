@@ -1388,3 +1388,380 @@ Numbers<> n;	// 默认用int，尖括号不能丢
 
 一个类可以包含本身是模板的成员函数，称为成员模板，不能是虚函数。
 
+eg：适用于任何类型的deleter。
+
+```c++
+class DebugDelete {
+public:
+  DebugDelete(std::ostream &s = std::cerr) : os(s) {}
+  template <typename T> void operator()(T* p) const {
+    os << "delete unique_prt" << std::endl; delete p;
+  }
+private:
+  std::ostream &os;
+};
+
+double* p = new double;
+DebugDelete d;
+d(p);
+int* ip = new int;
+DebugDelete()(ip);
+unique_prt<int, DebugDelete> p(new int, DebugDelete());
+unique_prt<string, DebugDelete> p(new string, DebugDelete());
+```
+
+## 类模板的成员模板
+
+成员模板是函数模板。
+
+```c++
+// 在类外定义时
+template <typename T>
+template <typename It>
+	Blob<T>::Blob(It b, It e): data(std::make_shared<std::vector<T>>(b, e)) {}
+```
+
+为了实例化一个类模板的成员模板，必须同时提供类和函数模板的实参。编译器通过传递给成员函数的函数实参来推断它的模板实参。
+
+## 控制实例化
+
+当模板被使用时才会进行实例化，相同实例可能出现在多个对象文件中。
+
+显式实例化。对每个实例化声明，在程序的某个位置必须有其显式的实例化定义。显式实例化会实例化所有成员函数，类型必须能用于模板的所有成员函数。
+
+extern template declaration;
+
+template declaration;
+
+eg：
+
+extern template class Blob<string>;
+
+template class Blob<string>;
+
+## 类型转换与模板类型参数
+
+只有很有限的几种类型转换会自动应用于模板类型参数的实参，编译器通常不是对实参进行类型转换，而是生成一个新的模板实参。
+
+顶层const会被忽略。
+
+底层const 转换：可以将一个非const对象的引用/指针传递给一个const的引用/指针形参。
+
+数组或函数指针转换。如果形参是一个引用，则数组不会转换为指针。
+
+使用相同模板参数类型的函数形参，不能接受两个不同类型的实参，如果希望允许对函数实参进行正常的类型转换，可以将函数模板定义为两个类型参数。
+
+如果函数参数类型不是模板参数，则对实参进行正常的类型转换。
+
+## 函数模板显式实参
+
+在某些情况下，编译器无法推断出模板实参的类型。在另一些情况下，希望允许用户控制模板实例化。当函数返回类型与参数列表中任何类型都不相同时，这两种情况最常出现。
+
+```c++
+template <typename T1, typename T2, typename T3>
+T1 sum(T2, T3);
+
+auto val3 = sum<long long>(i, lng); // long long sum(int, long);
+```
+
+显式模板实参按由左至右的顺序与对应的模板参数匹配，只有尾部的参数的显式模板实参才可以忽略，而且前提是它们可以从函数参数推断出来。
+
+**对于模板参数已经显式指定了的函数实参，允许进行正常类型转换。**
+
+## 尾置返回类型与类型转换
+
+当希望用户确定返回类型时，用显式模板实参表示模板函数的返回类型是很有效的。但在其他情况下，要求显式指定模板实参会给用户增添额外负担，而且不会带来什么好处。
+
+```c++
+// 使用尾置返回类型
+template <typename It>
+auto fcn(It beg, It end) -> decltype(*beg) {
+  return *beg;
+}
+```
+
+## 进行类型转换的标准库模板类
+
+类型转换模板。<type_traits>
+
+```c++
+template <typename It> // typename告知编译器type是一个类型
+auto fcn2(It beg, It end) -> typename remove_reference<decltype(*beg)>::type {
+  return *beg;
+}
+```
+
+Mod<T>:   Mod.   T.   Mod<T>::type.
+
+remove_reference   X&/X&&  X   其他 T
+
+add_const  X&/const X/函数  T   其他  const T
+
+add_lvalue_reference X&   T    X&&   X&   其他    T&
+
+add_rvalue_reference X&/X&&    T   其他    T&&
+
+remove_pointer  X*    X       其他     T
+
+add_pointer    X&/X&&    X*    其他    T*
+
+make_signed    unsigned X   X   其他   T
+
+make_unsigned    带符号类型   unsigned X    其他     T
+
+remove_extent    X[n]    X   其他    T
+
+remove_all_extents    X[n1] [n2]...     X    其他   T
+
+## 引用折叠和右值引用参数
+
+两个例外规则：
+
+1.将一个左值传递给函数的右值引用参数，且此右值引用指向模板类型参数(如T&&)时，编译器推断模板类型参数为实参的左值引用类型。
+
+2.引用折叠:X& &/X& &&/X&& & 折叠成类型X&   类型X&& &&折叠成X&&。引用折叠只能应用于间接创建的引用的引用，如类型别名或模板参数。
+
+如果一个函数参数是指向模板参数类型的右值引用（如，T&&），则可以传递给它任意类型的实参。如果将一个左值传递给这样的参数，则函数参数被实例化为一个普通的左值引用（T&）。
+
+在实际中，右值引用通常用于两种情况：
+
+1.模板重载。
+
+```c++
+template <typename T> void f(T&&);
+template <typename T> void f(const T&);
+```
+
+2.实参转发。
+
+```c++
+void f(int v1, int& v2) { ... }
+// Q1左值引用属性丢失
+template <typename F, typename T1, typename T2>
+void flip1(F f, T1 t1, T2 t2) {
+  f(t2, t1);
+}
+// 引用折叠，如果一个函数参数是指向模板类型参数的右值引用，它对应的实参的const属性和左值/右值属性将得到保持。
+template <typename F, typename T1, typename T2>
+void flip2(F f, T1&& t1, T2&& t2) {
+  f(t2, t1);
+}
+void g(int&& i, int& j) { ... }
+// Q2右值引用丢失
+template <typename F, typename T1, typename T2>
+void flip2(F f, T1&& t1, T2&& t2) {
+  f(t2, t1);
+}
+filp2(g, i, 42);
+// 函数参数是lval，42rval传递给flip2后t2是lval.
+// 在调用中使用std::forward保持类型信息
+template <typename F, typename T1, typename T2>
+void filp3(F f, T1&& t1, T2&& t2) {
+  f(std::forward<T2>(t2), std::forward<T1>(t1));
+}
+// <utility>,必须显式实例化，forward返回该实参类型的右值引用，通过引用折叠，保持左值/右值属性。当用于一个指向模板参数类型的右值引用函数参数（T&&）时，forward会保持实参类型的所有细节。
+```
+
+### std::move
+
+```c++
+template <typename T>
+typename remove_reference<T>::type&& move(T&& t) {
+  return static_cast<typename remove_reference<T>::type&&>(t);
+}
+```
+
+static_cast针对右值引用的一条特许规则：
+
+虽然不能隐式地将一个左值转换为右值引用，但可以用static_cast显式地将一个左值转换为一个右值引用。对于操作右值引用的代码来说，将一个右值引用绑定到一个左值的特性允许它们截断左值。
+
+## 重载与模板
+
+当有多个重载模板对一个调用提供同样好的匹配时，应选择最特化的版本。
+
+对于一个调用，如果一个非函数模板与一个函数模板提供同样好的匹配，则选择非模板版本。
+
+在定义任何函数之前，记得声明所有重载的函数版本，这样就不必担心编译器由于未遇到希望调用的函数而实例化一个并非所需的版本。
+
+## 模板特例化
+
+```c++
+// 函数模板特例化
+template<>
+int compare(const char* const &p1, const char* const& p2) {
+  return strcmp(p1, p2);
+}
+// 定义一个特例化版本时，函数参数类型必须与一个先前声明的模板中对应的类型匹配
+```
+
+特例化的本质是实例化一个模板，而非重载它。因此，特例化不影响函数匹配。当一个非模板函数提供与函数模板同样好的匹配时，编译器会选择非模板版本。
+
+普通作用域规则应用于特例化。模板机器特例化版本应该声明在同一个头文件中。所有同名模板的声明应该放在前面，然后是这些模板的特例化版本。
+
+类模板可以部分特例化(偏特化)，函数模板不能部分特例化。
+
+特例化成员函数：
+
+template<>
+
+void Foo<int>::Bar() { ... };
+
+// 用于int的特例化成员函数
+
+## 可变参数模板
+
+模板参数包typename... Args   Args是一个模板参数包 零或多个
+
+函数参数包Args& ... rest rest是一个函数参数包 零或多个
+
+sizeof...(Args) // 类型参数的数目  sizeof...(args) // 函数参数的数目 
+
+```c++
+// 编写可变参数函数模板
+// 用来终止递归并打印最后一个元素的函数，必须定义在可变参数版本之前
+template<typename T>
+ostream& print(ostream& os, const T& t) {
+  return os << t;
+}
+template <typename T, typename... Args>
+ostream& print(ostream& os, const T& t, const Args&... rest) {
+  os << t << ",";
+  return print(os, rest...);
+}
+// 非可变参数版本更特化，最后一次调用选择非可变参数版本。
+```
+
+包扩展（expand）：模式（pattern），...触发扩展，扩展中的模式会独立地应用于包中的每个元素。
+
+const Args&... rest
+
+debug_rep(rest)...
+
+std::forward<Args>(args)...
+
+# 高级主题
+
+## tuple <tuple>
+
+ops:
+
+tuple<T1, T2, ..., Tn> t;
+
+tuple<T1, T2, ..., Tn> t(v1, v2, ...,vn);
+
+make_tuple(v1, v2, ...,vn);
+
+t1 == t2, t1 != t2, t1 relop t2   t1和t2中每个成员必须一一对应的可使用其关系运算符。可以将tuple传递给算法，并可以在无序容器中用tuple作key。
+
+get<i>(t)  返回t的第i个数据成员的引用，t是左值，则返回左值引用，t是右值，则返回右值引用。tuple中所有成员都是public的。
+
+tuple_size<tupletype>::value  通过一个实例化的tuple类型来初始化，返回value(size_t),表示给定tuple类型中成员的数量。
+
+tuple_element<i, tupletype>::type  tuple类型中指定成员的类型。
+
+可以将tuple看作一个“快速而随意的数据结构”。
+
+eg:
+
+auto book = get<0>(item); // rval
+
+get<2>(item) *= 0.8; // lval
+
+typedef decltype(item) trans;
+
+size_t sz = tuple_size<trans>::value;
+
+tuple_element<1, trans>::type cnt = get<1>(item);
+
+## bitset <bitset>
+
+位操作。
+
+ops:
+
+bitset<n> b;  b有n位，均为0
+
+bitset<n> b(u); unsigned数初始化b，长度不足高位补0，长度超过截断，signed当作unsigned。
+
+bitset<n> b(s, pos, m, zero, one); string从pos开始m位，zero(char)转0，one(char)转1。zero和one默认为'0','1'。若string中包含其他字符，会异常。 **string中下标最大的字符初始化bitset的低位。**
+
+bitset<n> b(cp, pos, m, zero, one);
+
+b.any() 是否存在置位的二进制位。
+
+b.all() 是否全部置位
+
+b.none()
+
+b.count() 置位的位数
+
+b.size() n
+
+b.test(pos) pos位置是否置位
+
+b.set(pos, v) b.set() 将pos处/所有位置置为v，v默认true
+
+b.reset(pos) b.reset() 复位
+
+b.flip(pos) b.flip() 改变位置pos处的位的状态或改变b中每一位的状态
+
+b[pos]
+
+b.to_ulong() b.to_ullong() b无法全部放入会抛出异常
+
+b.to_string(zero, one)
+
+os << b 打印为字符
+
+is >> b 从is读取字符存入b，当下一个字符不是0或1，或b已满，读取停止
+
+## TODO:regex,rand,IO库再探
+
+## 异常处理exception handling
+
+throw：抛出异常，throw后面的语句将不再被执行，使用方式类似return，在条件语句后面使用，或者作为某个函数最后一条语句。
+
+栈展开：throw出现在一个try语句块内时，检查与该try块关联的catch子句，如果找到了匹配的catch，就用该catch处理，否则继续检查与外层try匹配的catch子句，如果找不到，就调用调用terminate退出程序。一个异常如果没有被捕获，则它将终止当前的程序。
+
+**栈展开过程中对象被自动销毁：**局部对象的析构函数会被自动调用，而释放资源的语句可能被跳过（eg：throw之后的delete）。
+
+析构函数不应该抛出不能被自身处理的异常，一旦在栈展开过程中析构函数抛出了异常，并且析构函数本身没能捕捉异常，则程序被终止。在实际的编程过程中，因为析构函数仅仅是释放资源，所以它不太可能抛出异常，所有标准库类型都能保证它们的析构函数不会引发异常。
+
+异常对象(expection object):编译器使用throw对异常对象进行**拷贝初始化**。抛出一个指向局部对象的指针几乎肯定是一种错误的行为。静态编译时的类型决定了异常对象的类型，基类指针实际指向派生类，派生类会被切掉一部分，只有基类部分被抛出。
+
+catch：参数类型，可以忽略，非引用的话不改变原对象，可以是左值引用，不能是右值引用。静态类型决定catch语句能执行的操作，如果catch的参数是基类类型，则catch无法使用派生类特有的任何成员。
+
+越是专门的catch应该置于整个catch列表的前端。
+
+catch声明的类型允许的类型转换仅有：允许非常量向常量转换，允许派生类向基类转换，数组被转换成指向数组类型的指针，函数被转换成指向该函数类型的指针。
+
+重新抛出：throw；一个重新抛出语句并不指定新的表达式，而是将当前的异常对象沿着调用链向上传递。
+
+捕获所有异常的处理代码：catch(...)，如果与其他几个catch语句一起出现，则应该出现在最后的位置。
+
+try与构造函数：
+
+```c++
+template <typename T>
+Blob<T>::Blob(...) try : ... { ... } catch(...) { ... }
+// try出现在表示构造函数初始值列表的冒号以及函数体之前，catch可以处理成员初始化列表的异常也能处理函数体的异常
+```
+
+处理构造函数初始值异常的唯一方法是将构造函数写成函数try语句块。
+
+**noexcept:**跟在函数的参数列表后面，尾置返回类型之前，const/&&/&之后，final/override/=0之前。
+
+编译器并不会在编译时检查noexcept，noexcept函数抛出异常程序会调用terminate。
+
+noexcept(true) // 不抛出异常    noexcept(false) // 可能会抛出异常
+
+noexcept作为运算符：noexcept(e) e做了noexcept说明且无throw语句时true，否则false。
+
+noexcept与指针、虚函数和拷贝控制：
+
+不抛出异常的函数指针只能指向不抛出异常的函数，可能抛出异常的函数可以指向任何函数。
+
+虚函数不抛出异常承诺，派生出来的虚函数也必须不抛出异常承诺，基类允许抛出异常，派生出来的对应函数既可以允许抛出异常，也可以不允许抛出异常。
+
+如果所有成员和基类的所有操作都承诺了不会抛出异常，则合成的成员是noexcept的。否则是noexcept（false）。如果我们定义了一个析构函数但是没有为它提供异常说明，则编译器将合成一个。合成的异常说明将与假设由编译器为类合成析构函数时所得的异常说明一致。
+

@@ -18,7 +18,7 @@ class EventLoopThreadPool : NetLib::noncopyable {
 public:
     typedef std::function<void (EventLoop*)> ThreadInitFunc;
 
-    EventLoopThreadPool(EventLoop* _baseloop, ThreadInitFunc _cb, std::string& _name);
+    EventLoopThreadPool(EventLoop* _baseloop, std::string& _name);
     ~EventLoopThreadPool();
 
     void start();
@@ -26,6 +26,8 @@ public:
     EventLoop* getNextLoop();
 
     void setThreadNum(int n) { num_threads_ = n; }
+    void setThreadInitFunction(ThreadInitFunc&& func) { 
+        thread_init_callback_ = std::move(func); }
 
     bool started() const { return started_; }
     std::string name() const { return name_; }

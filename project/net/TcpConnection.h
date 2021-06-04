@@ -53,7 +53,9 @@ public:
         write_complete_cb_ = cb; }
     void setHighWaterMarkCallback(const HighWaterMarkCallback& cb, size_t highWaterMark) {
         high_water_cb_ = cb; high_water_mark_ = highWaterMark; }
-
+    void setCloseCallback(const CloseCallback& cb) {
+        close_cb_ = cb;
+    }
     void connectEstablished();
     void connectDestroyed();
 

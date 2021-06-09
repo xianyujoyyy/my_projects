@@ -1876,5 +1876,132 @@ namespace A {
 }
 ```
 
-## new/delete
+## RTTI
+
+typeid,dynamic_cast
+
+将这两个运算符用于某种类型的指针或引用，并且该类型含有虚函数时，运算符将使用指针或引用所绑定对象的动态类型。
+
+dynamic_cast: 用于动态向下转换
+
+dynamic_cast<type*> (e)
+
+dynamic_cast<type&> (e)
+
+dynamic_cast<type&&> (e)
+
+type必须是一个类类型，并且通常情况下该类型应该含有虚函数。在第一种形式中，e必须是一个有效的指针；在第二种形式中，e必须是一个左值；在第三种形式中，e不能是左值。
+
+type必须是e的公有B，D或它自身。
+
+如果dynamic_cast转换指针失败了，则结果是0。如果转换引用失败了，则抛出bad_cast。
+
+```c++
+if (Derived *dp = dynamic_cast<Derived*>(bp)) { // 在条件部分使用dynamic_cast可以确保类型转换和结果检查在一条表达式中完成
+  // 使用dp指向的Derived对象
+}
+else {
+  // 使用bp指向的Base对象
+}
+
+// 引用
+void f(const Base& b) {
+  try {
+    const Derived &d = dynamic_cast<const Derived&> (b);
+  } catch (bad_cast) {
+    ...
+  }
+}
+```
+
+typeid: 动态类型判断
+
+对数组使用typeid返回数组类型而非指针类型。
+
+当运算对象不属于类类型或者是一个不包含任何虚函数的类时，typeid运算符指示的是运算对象的静态类型。而当运算对象是定义了至少一个虚函数的类的左值时，typeid的结果直到运行时才会求得。
+
+typeid应该作用于对象，当typeid作用于指针时（而非指针所指的对象），返回的结果是该指针的静态编译时类型。
+
+```c++
+// 一个例子
+class Base {
+  friend bool operator==(const Base&, const Base&);
+public:
+  ...
+protected:
+  virtual bool equal(const Base&) const;
+}
+class Derived : public Base {
+public:
+  ...
+protected:
+  bool equal(const Base&) const;
+}
+
+bool operator==(const Base& lhs, const Base& rhs) {
+  return typeid(lhs) == typeid(rhs) && lhs.equal(rhs);
+}
+bool Derived::equal(const Base& rhs) const {
+  auto r = dynamic_cast<const Derived&>(rhs);
+}
+bool Base::equal(const Base& rhs) const {
+  ...
+}
+```
+
+## 类成员指针
+
+const string Screen::*pdata;
+
+pdata = &Screen::contents;
+
+auto pdata = &Screen::contents;
+
+
+
+auto pmf = &Screen::get_cursor;
+
+char (Screen::*pmf2) (Screen::pos, Screen::pos) const;
+
+pmf2 = &Screen::get;
+
+和普通函数指针不同的是，在成员函数和指向该成员的指针之间不存在自动转换规则。
+
+成员指针不是一个可调用对象，这样的指针不支持函数调用运算符，可使用function生成一个可调用对象。
+
+
+
+using Action = char (Screen::*) (Screen::pos, Screen::pos) const;
+
+Action get = &Screen::get;
+
+```c++
+// 成员指针函数表
+class Screen {
+public:
+  using Action = Screen& (Screen::*) ();
+  enum Direction { HOME, FORWARD, BACK, UP, DOWN };
+  Screen& move(Direction);
+private:
+  static Action Meni[];
+};
+
+Screen& Screen::move(Direction cm) {
+  return (this->*Menu[cm])(); // 返回一个函数，并运行
+}
+
+Screen::Action Screen::Menu[] = {
+  &Screen::home, &Screen::forward, &Screen::back, &Screen::up, &Screen::down,
+};
+```
+
+## volatile
+
+当对象的值可能在程序的控制或检测之外被改变时，应该将对象声明为volatile。告诉编译器不应该对这样的对象进行优化。
+
+合成的拷贝对volatile对象无效。
+
+## extern "C"
+
+链接指示。
 

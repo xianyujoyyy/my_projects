@@ -164,7 +164,7 @@ C:1.用于函数内部修饰变量，即函数内的静态变量。这种变量�
 
 c++:3.用于修饰class的数据成员，即所谓“静态成员”。这种数据成员的生存期大于class的对象。静态数据成员是每个class有一份，普通数据成员是每个instance有一份，因此也分别叫做class variable和instance variable。使用作用域运算符或者类的对象都可以访问。静态数据成员可以是类本身，可以使用静态成员作为默认实参。
 
-4.用于修饰class的成员函数，即所谓“静态成员函数”。这种成员函数只能访问class variable和其他静态程序函数，不能访问instance variable或instance method。
+4.用于修饰class的成员函数，即所谓“静态成员函数”。这种成员函数只能访问class variable和其他静态程序函数，不能访问instance variable或instance method（因为没有this指针，也就无法声明为const\volatile\virtual）。
 
 ## 尽量使用常量引用
 

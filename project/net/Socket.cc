@@ -66,7 +66,27 @@ ssize_t write(int sockfd, const void* buf, size_t count) {
     return ::write(sockfd, buf, count);
 }
 
-}   // namespace socket
+struct sockaddr_in6 getPeerAddr(int sockfd) {
+    struct sockaddr_in6 peeraddr;
+    ::bzero(&peeraddr, sizeof(peeraddr));
+    socklen_t addrlen = static_cast<socklen_t>(sizeof(peeraddr));
+    if (::getpeername(sockfd, sockaddr_cast(&peeraddr), &addrlen) < 0) {
+        LOG_SYSERR << "sockets::getPeerAddr";
+    }
+    return peeraddr;
+}
+
+struct sockaddr_in6 getLocalAddr(int sockfd) {
+    struct sockaddr_in6 localaddr;
+    ::bzero(&localaddr, sizeof(localaddr));
+    socklen_t addrlen = static_cast<socklen_t>(sizeof(localaddr));
+    if (::getsockname(sockfd, sockaddr_cast(&localaddr), &addrlen) < 0) {
+        LOG_SYSERR << "sockets::getLocalAddr";
+    }
+    return localaddr;
+}
+
+}   // namespace sockets
 
 Socket::~Socket() {
     if (::close(sockfd_) < 0) {

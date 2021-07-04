@@ -29,7 +29,8 @@ public:
     ~TcpConnection();
 
     EventLoop* getLoop() const { return loop_; }
-    // bool connecting() const { return state_ == kConnected; }
+    
+    bool connected() const { return state_ == kConnected; }
     // bool disconnected() const { return state_ == kDisconnected; }
     void send(Buffer& buffer);
     void send(const string& s);
